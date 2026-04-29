@@ -1,11 +1,12 @@
 // Cameras and detection events (dummy)
 export const cameras = [
-  { id: "LOCALCAM1", name: "North Gate", lat: 16.5100, lng: 80.6317 },
-  { id: "LOCALCAM3", name: "Parking A", lat: 16.5065, lng: 80.6310 },
-  { id: "LOCALCAM2", name: "Building 5 Exit", lat: 16.5075, lng: 80.6388 },
-  { id: "LOCALCAM4", name: "Main Road Junction", lat: 16.5088, lng: 80.6342 },
-  { id: "LOCALCAM5", name: "Visitor Parking", lat: 16.5059, lng: 80.6295 },
-  { id: "LOCALCAM6", name: "South Gate", lat: 16.5097, lng: 80.6371 },
+  // nudged coordinates toward nearby roads for better map placement
+  { id: "LOCALCAM1", name: "North Gate", lat: 16.5102, lng: 80.6347 },
+  { id: "LOCALCAM3", name: "Parking A", lat: 16.5067, lng: 80.6328 },
+  { id: "LOCALCAM2", name: "Building 5 Exit", lat: 16.5072, lng: 80.6370 },
+  { id: "LOCALCAM4", name: "Main Road Junction", lat: 16.5086, lng: 80.6348 },
+  { id: "LOCALCAM5", name: "Visitor Parking", lat: 16.5057, lng: 80.6310 },
+  { id: "LOCALCAM6", name: "South Gate", lat: 16.5095, lng: 80.6360 },
 ];
 
 export const detections = [
@@ -537,6 +538,14 @@ export const detections = [
   { plate: "AP05RT7037", cameraId: "LOCALCAM6", ts: "2025-08-08T18:29:15Z", vehicleType: "car" }
 ]
 
+export const VEHICLE_TYPE_LABELS = {
+  car: "Car",
+  auto: "Auto",
+  bus: "Bus",
+  truck: "Truck",
+  bike: "Bike",
+};
+
 export function getJourneyForPlate(plate) {
   const plateNorm = plate.trim().toUpperCase();
   const events = detections
@@ -558,47 +567,30 @@ export function getJourneyForPlate(plate) {
 }
 
 export function getCameraStats() {
-  const stats = {};
-
-  // Step 1: Initialize all cameras
-  cameras.forEach(cam => {
-    stats[cam.id] = {
-      cameraId: cam.id,
-      name: cam.name,
-      lat: cam.lat,
-      lng: cam.lng,
+  const statsByCameraId = new Map(
+    cameras.map((camera) => [camera.id, {
+      cameraId: camera.id,
+      name: camera.name,
+      lat: camera.lat,
+      lng: camera.lng,
       totalVehicles: 0,
       typeCounts: {},
-      uniquePlates: new Set()
-    };
+      uniquePlates: new Set(),
+    }])
+  );
+
+  detections.forEach((detection) => {
+    const cameraStats = statsByCameraId.get(detection.cameraId);
+    if (!cameraStats) return;
+
+    cameraStats.totalVehicles += 1;
+    cameraStats.uniquePlates.add(detection.plate);
+    cameraStats.typeCounts[detection.vehicleType] = (cameraStats.typeCounts[detection.vehicleType] || 0) + 1;
   });
 
-  // Step 2: Process detections
-  detections.forEach(d => {
-    const cam = stats[d.cameraId];
-    if (!cam) return;
-
-    // increase total count
-    cam.totalVehicles += 1;
-
-    cam.uniquePlates.add(d.plate);
-
-    // count vehicle type
-    if (!cam.typeCounts[d.vehicleType]) {
-      cam.typeCounts[d.vehicleType] = 0;
-    }
-    cam.typeCounts[d.vehicleType] += 1;
-  });
-
-  // Step 3: Convert object → array (easy for UI)
-  return Object.values(stats).map(cam => ({
-  cameraId: cam.cameraId,
-  name: cam.name,
-  lat: cam.lat,
-  lng: cam.lng,
-  totalVehicles: cam.totalVehicles,
-  uniqueVehicles: cam.uniquePlates.size, // 👈 NEW
-  typeCounts: cam.typeCounts
-}));
+  return Array.from(statsByCameraId.values()).map(({ uniquePlates, ...cameraStats }) => ({
+    ...cameraStats,
+    uniqueVehicles: uniquePlates.size,
+  }));
 }
 
