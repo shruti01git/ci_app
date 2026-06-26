@@ -4,6 +4,13 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cameras, getCameraStats, VEHICLE_TYPE_LABELS } from "../data.js";
 import { Camera, MapPin } from "lucide-react";
+import AnimatedPolyline from "./AnimatedPolyline";
+import CameraHoverCard from "./CameraHoverCard";
+import EventPopup from "./EventPopup";
+import FitBounds from "./FitBounds";
+import NumberedMarker from "./NumberedMarker";
+
+
 
 const cameraIcon = L.divIcon({
   className: "leaflet-camera-icon",
@@ -46,76 +53,6 @@ function buildTypeCounts(typeCounts) {
       label: VEHICLE_TYPE_LABELS[type] || type,
       count,
     }));
-}
-
-function FitBounds({ events }) {
-  const map = useMap();
-  const bounds = useMemo(() => {
-    if (!events || events.length === 0) return null;
-    return L.latLngBounds(events.map((event) => [event.lat, event.lng]));
-  }, [events]);
-
-  useEffect(() => {
-    if (bounds) map.fitBounds(bounds.pad(0.2), { animate: false });
-  }, [bounds, map]);
-
-  return null;
-}
-
-function CameraHoverCard({ camera }) {
-  const { stats } = camera;
-  const typeCounts = buildTypeCounts(stats?.typeCounts);
-
-  return (
-    <div className="camera-tooltip">
-      <div className="camera-tooltip__topline">
-        <Camera className="h-4 w-4" />
-        Camera
-      </div>
-      <div className="camera-tooltip__heading">{camera.name}</div>
-      <div className="camera-tooltip__meta">{camera.id}</div>
-
-      <div className="camera-tooltip__metrics">
-        <div className="camera-tooltip__metric">
-          <span>Total vehicles</span>
-          <strong>{stats?.totalVehicles ?? 0}</strong>
-        </div>
-        <div className="camera-tooltip__metric">
-          <span>Unique plates</span>
-          <strong>{stats?.uniqueVehicles ?? 0}</strong>
-        </div>
-      </div>
-
-      <div className="camera-tooltip__section-title">Vehicle mix</div>
-      <div className="camera-tooltip__chips">
-        {typeCounts.length > 0 ? (
-          typeCounts.map((item) => (
-            <span className="camera-tooltip__chip" key={item.type}>
-              {item.label} <strong>{item.count}</strong>
-            </span>
-          ))
-        ) : (
-          <span className="camera-tooltip__empty">No detections recorded yet.</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function EventPopup({ event }) {
-  return (
-    <div className="route-popup">
-      <div className="route-popup__title">{event.name}</div>
-      <div className="route-popup__meta">
-        <span>{event.cameraId}</span>
-        <span>{new Date(event.ts).toLocaleString()}</span>
-      </div>
-      <div className="route-popup__coords">
-        <MapPin className="h-4 w-4" />
-        {event.lat.toFixed(4)}, {event.lng.toFixed(4)}
-      </div>
-    </div>
-  );
 }
 
 export default function MapView({ events }) {
@@ -201,24 +138,23 @@ export default function MapView({ events }) {
               Event/location markers were removed to avoid redundancy —
               routes are still drawn as polylines. */}
 
-          {routeCoords ? (
-            <Polyline positions={routeCoords} pathOptions={{ weight: 4 }} />
+          {routeCoords && routeCoords.length > 1 ? (
+            <AnimatedPolyline positions={routeCoords} />
           ) : (
-            positions.length >= 2 && <Polyline positions={positions} pathOptions={{ dashArray: "6 6", weight: 3 }} />
+            positions.length >= 2 && <AnimatedPolyline positions={positions} />
           )}
 
           {/* Expand fit-bounds to include both cameras and the deduplicated route points */}
           <FitBounds events={[...cameraMarkers, ...dedupedByCamera]} />
 
           {/* Highlight latest camera for the searched vehicle (non-persistent) */}
-          {latestCamera && (
-            <Marker
-              key={`highlight-${latestCamera.id}`}
-              position={[latestCamera.lat, latestCamera.lng]}
-              icon={highlightIcon}
-              zIndexOffset={2200}
-            />
-          )}
+          {dedupedByCamera.map((event, index) => (
+           <NumberedMarker
+           key={event.cameraId}
+           event={event}
+           index={index}
+          />
+        ))}
         </MapContainer>
       </div>
     </div>

@@ -4,6 +4,7 @@ import SearchBar from "./components/SearchBar.jsx";
 import CameraList from "./components/CameraList.jsx";
 import MapView from "./components/MapView.jsx";
 import { cameras, getJourneyForPlate } from "./data.js";
+import InvestigationSummary from "./components/InvestigationSummary";
 
 export default function App() {
   const [query, setQuery] = useState("");
